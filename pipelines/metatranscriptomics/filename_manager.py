@@ -1,7 +1,7 @@
 from os.path import join
 
 
-class FilenameManager(dict):
+class FilenameManager:
     def __init__(self, steps):
         self.files = {step: dict() for step in steps}
 
