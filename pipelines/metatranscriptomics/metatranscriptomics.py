@@ -3,8 +3,8 @@
 # Python Standard Modules
 import logging
 import os.path
-from os.path import join
 import sys
+from os.path import join
 
 # Append mugqic_pipelines directory to Python library path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))))
@@ -17,6 +17,7 @@ from bfx import trimmomatic
 from bfx import flash
 from bfx import seqtk
 from bfx import usearch
+from core.filename_manager import FilenameManager
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +51,10 @@ class Metatranscriptomics(common.Illumina):
     # 'metatranscriptomics/scripts'
     script_path = os.path.join(os.path.dirname(__file__), 'scripts')
 
+    def __init__(self):
+        self.fm = FilenameManager(self.steps)
+        super(Metatranscriptomics, self).__init__()
+
     def format_fastq_headers(self):
         """
         Mark the headers of the fastq files with /1 or /2 to differentiate the paired-end reads
@@ -58,12 +63,17 @@ class Metatranscriptomics(common.Illumina):
         """
         jobs = []
 
-        output_prefix = 'format_reads'
+        # output_prefix = 'format_reads'
         for readset in self.readsets:
-            output_dir = join(output_prefix, readset.name)
+            # output_dir = join(output_prefix, readset.name)
+            #
+            # output1 = join(output_dir, readset.name + '.1.formatted.fastq')
+            # output2 = join(output_dir, readset.name + '.2.formatted.fastq')
+            output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, {'readset_name': readset.name})
+            output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, {'readset_name': readset.name})
 
-            output1 = join(output_dir, readset.name + '.1.formatted.fastq')
-            output2 = join(output_dir, readset.name + '.2.formatted.fastq')
+            # sys.stderr.write(output1)
+            # sys.exit()
 
             jobs.append(concat_jobs([mkdir(output1),
                                      mkdir(output2),
@@ -84,45 +94,43 @@ class Metatranscriptomics(common.Illumina):
     def trimmomatic(self):
         jobs = []
 
-        input_prefix = 'format_reads'
-        output_prefix = 'format_reads'
-
-        def get_inputs(readset):
-            """
-            :return: 2 fastq filenames for paired-end reads
-            """
-            input_dir = join(input_prefix, readset.name)
-            return input_dir, \
-                   join(input_dir, readset.name + '.1.formatted.fastq'), \
-                   join(input_dir, readset.name + '.2.formatted.fastq')
-
-        def get_outputs(readset):
-            """
-            :return: output directory name,
-                     4 fastq filenames
-            """
-            output_dir = join(output_prefix, readset.name)
-            return output_dir, \
-                   join(output_dir, readset.name + '.1.qual_paired.fastq'), \
-                   join(output_dir, readset.name + '.1.qual_unpaired.fastq'), \
-                   join(output_dir, readset.name + '.2.qual_paired.fastq'), \
-                   join(output_dir, readset.name + '.2.qual_unpaired.fastq')
+        # input_prefix = 'format_reads'
+        # output_prefix = 'format_reads'
+        #
+        # def get_inputs(readset):
+        #     """
+        #     :return: 2 fastq filenames for paired-end reads
+        #     """
+        #     input_dir = join(input_prefix, readset.name)
+        #     return input_dir, \
+        #            join(input_dir, readset.name + '.1.formatted.fastq'), \
+        #            join(input_dir, readset.name + '.2.formatted.fastq')
+        #
+        # def get_outputs(readset):
+        #     """
+        #     :return: output directory name,
+        #              4 fastq filenames
+        #     """
+        #     output_dir = join(output_prefix, readset.name)
+        #     return output_dir, \
+        #            join(output_dir, readset.name + '.1.qual_paired.fastq'), \
+        #            join(output_dir, readset.name + '.1.qual_unpaired.fastq'), \
+        #            join(output_dir, readset.name + '.2.qual_paired.fastq'), \
+        #            join(output_dir, readset.name + '.2.qual_unpaired.fastq')
 
         for readset in self.readsets:
-            input_dir, input1, input2 = get_inputs(readset)
-            output_dir, output_paired1, output_unpaired1, output_paired2, output_unpaired2 = get_outputs(readset)
-
-            job = trimmomatic.trimmomatic(input1,
-                                          input2,
-                                          output_paired1,
-                                          output_unpaired1,
-                                          output_paired2,
-                                          output_unpaired2,
+            job = trimmomatic.trimmomatic(self.fm.find_output('formatted-headers1', self.format_fastq_headers),
+                                          self.fm.find_output('formatted-headers2', self.format_fastq_headers),
+                                          self.fm.declare_output('trim-paired1', self.trimmomatic, {'readset_name': readset.name}),
+                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, {'readset_name': readset.name}),
+                                          self.fm.declare_output('trim-paired2', self.trimmomatic, {'readset_name': readset.name}),
+                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, {'readset_name': readset.name}),
                                           None,
                                           None,
                                           adapter_file=config.param('trimmomatic', 'adapter_fasta'),
-                                          trim_log=join(output_prefix, readset.name + '.trim.log'))
-            job.name = 'trimmomatic.' + readset.name
+                                          trim_log=join(self.trimmomatic.__name__, readset.name + '.trim.log'))
+                                          # trim_log=join(output_prefix, readset.name + '.trim.log'))
+            job.name = self.trimmomatic.__name__ + '.' + readset.name
             jobs.append(job)
 
         return jobs
@@ -329,7 +337,7 @@ class Metatranscriptomics(common.Illumina):
             self.fastq_to_fasta,
             self.cluster_duplicates,
             self.remove_duplicates, #6
-            self.remove_abundant_rrna,
+            # self.remove_abundant_rrna,
         ]
 
 
