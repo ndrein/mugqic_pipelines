@@ -17,7 +17,7 @@ from bfx import trimmomatic
 from bfx import flash
 from bfx import seqtk
 from bfx import usearch
-from core.filename_manager import FilenameManager
+from core.filename_manager import FilenameManager, FileTag
 
 log = logging.getLogger(__name__)
 
@@ -61,19 +61,18 @@ class Metatranscriptomics(common.Illumina):
 
         Call 'main_add_subID_reads_fastq.pl'
         """
+        # TODO: static tags, not strings
+        self.format_fastq_headers.formatted_headers1 = FileTag(step=self.format_fastq_headers.__name__, name='formatted_headers1')
+        self.format_fastq_headers.formatted_headers2 = FileTag(step=self.format_fastq_headers.__name__, name='formatted_headers2')
+
         jobs = []
 
-        # output_prefix = 'format_reads'
         for readset in self.readsets:
-            # output_dir = join(output_prefix, readset.name)
-            #
-            # output1 = join(output_dir, readset.name + '.1.formatted.fastq')
-            # output2 = join(output_dir, readset.name + '.2.formatted.fastq')
-            output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, {'readset_name': readset.name})
-            output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, {'readset_name': readset.name})
+            output1 = self.fm.declare_output(self.format_fastq_headers.formatted_headers1, readset.name)
+            output2 = self.fm.declare_output(self.format_fastq_headers.formatted_headers2, readset.name)
 
-            # sys.stderr.write(output1)
-            # sys.exit()
+            # output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, {'readset_name': readset.name})
+            # output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, {'readset_name': readset.name})
 
             jobs.append(concat_jobs([mkdir(output1),
                                      mkdir(output2),
