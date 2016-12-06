@@ -17,7 +17,7 @@ from bfx import trimmomatic
 from bfx import flash
 from bfx import seqtk
 from bfx import usearch
-from core.filename_manager import FilenameManager, FileTag
+from core.filename_manager import FilenameManager
 
 log = logging.getLogger(__name__)
 
@@ -61,18 +61,11 @@ class Metatranscriptomics(common.Illumina):
 
         Call 'main_add_subID_reads_fastq.pl'
         """
-        # TODO: static tags, not strings
-        self.format_fastq_headers.formatted_headers1 = FileTag(step=self.format_fastq_headers.__name__, name='formatted_headers1')
-        self.format_fastq_headers.formatted_headers2 = FileTag(step=self.format_fastq_headers.__name__, name='formatted_headers2')
-
         jobs = []
 
         for readset in self.readsets:
-            output1 = self.fm.declare_output(self.format_fastq_headers.formatted_headers1, readset.name)
-            output2 = self.fm.declare_output(self.format_fastq_headers.formatted_headers2, readset.name)
-
-            # output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, {'readset_name': readset.name})
-            # output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, {'readset_name': readset.name})
+            output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, readset.name)
+            output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, readset.name)
 
             jobs.append(concat_jobs([mkdir(output1),
                                      mkdir(output2),
@@ -86,50 +79,25 @@ class Metatranscriptomics(common.Illumina):
                                                                              output1=output1,
                                                                              input2=readset.fastq2,
                                                                              output2=output2))],
-                                    name='format_fastq_headers.' + readset.name))
+                                    name='{step}.{readset}'.format(step=self.format_fastq_headers.__name__, readset=readset.name)))
 
         return jobs
 
     def trimmomatic(self):
         jobs = []
 
-        # input_prefix = 'format_reads'
-        # output_prefix = 'format_reads'
-        #
-        # def get_inputs(readset):
-        #     """
-        #     :return: 2 fastq filenames for paired-end reads
-        #     """
-        #     input_dir = join(input_prefix, readset.name)
-        #     return input_dir, \
-        #            join(input_dir, readset.name + '.1.formatted.fastq'), \
-        #            join(input_dir, readset.name + '.2.formatted.fastq')
-        #
-        # def get_outputs(readset):
-        #     """
-        #     :return: output directory name,
-        #              4 fastq filenames
-        #     """
-        #     output_dir = join(output_prefix, readset.name)
-        #     return output_dir, \
-        #            join(output_dir, readset.name + '.1.qual_paired.fastq'), \
-        #            join(output_dir, readset.name + '.1.qual_unpaired.fastq'), \
-        #            join(output_dir, readset.name + '.2.qual_paired.fastq'), \
-        #            join(output_dir, readset.name + '.2.qual_unpaired.fastq')
-
         for readset in self.readsets:
-            job = trimmomatic.trimmomatic(self.fm.find_output('formatted-headers1', self.format_fastq_headers),
-                                          self.fm.find_output('formatted-headers2', self.format_fastq_headers),
-                                          self.fm.declare_output('trim-paired1', self.trimmomatic, {'readset_name': readset.name}),
-                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, {'readset_name': readset.name}),
-                                          self.fm.declare_output('trim-paired2', self.trimmomatic, {'readset_name': readset.name}),
-                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, {'readset_name': readset.name}),
+            job = trimmomatic.trimmomatic(self.fm.find_output('formatted-headers1', self.format_fastq_headers, readset.name),
+                                          self.fm.find_output('formatted-headers2', self.format_fastq_headers, readset.name),
+                                          self.fm.declare_output('trim-paired1', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-paired2', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, readset.name),
                                           None,
                                           None,
                                           adapter_file=config.param('trimmomatic', 'adapter_fasta'),
                                           trim_log=join(self.trimmomatic.__name__, readset.name + '.trim.log'))
-                                          # trim_log=join(output_prefix, readset.name + '.trim.log'))
-            job.name = self.trimmomatic.__name__ + '.' + readset.name
+            job.name = '{step}.{readset}'.format(step=self.trimmomatic.__name__, readset=readset.name)
             jobs.append(job)
 
         return jobs
