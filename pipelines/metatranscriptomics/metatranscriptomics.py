@@ -64,8 +64,8 @@ class Metatranscriptomics(common.Illumina):
         jobs = []
 
         for readset in self.readsets:
-            output1 = self.fm.declare_output('formatted-headers1', self.format_fastq_headers, readset.name)
-            output2 = self.fm.declare_output('formatted-headers2', self.format_fastq_headers, readset.name)
+            output1 = self.fm.declare_output('formatted-headers1.fastq', self.format_fastq_headers, readset.name)
+            output2 = self.fm.declare_output('formatted-headers2.fastq', self.format_fastq_headers, readset.name)
 
             jobs.append(concat_jobs([mkdir(output1),
                                      mkdir(output2),
@@ -87,12 +87,12 @@ class Metatranscriptomics(common.Illumina):
         jobs = []
 
         for readset in self.readsets:
-            job = trimmomatic.trimmomatic(self.fm.find_output('formatted-headers1', self.format_fastq_headers, readset.name),
-                                          self.fm.find_output('formatted-headers2', self.format_fastq_headers, readset.name),
-                                          self.fm.declare_output('trim-paired1', self.trimmomatic, readset.name),
-                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, readset.name),
-                                          self.fm.declare_output('trim-paired2', self.trimmomatic, readset.name),
-                                          self.fm.declare_output('trim-unpaired2', self.trimmomatic, readset.name),
+            job = trimmomatic.trimmomatic(self.fm.find_output('formatted-headers1.fastq', self.format_fastq_headers, readset.name),
+                                          self.fm.find_output('formatted-headers2.fastq', self.format_fastq_headers, readset.name),
+                                          self.fm.declare_output('trim-paired1.fastq', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-unpaired2.fastq', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-paired2.fastq', self.trimmomatic, readset.name),
+                                          self.fm.declare_output('trim-unpaired2.fastq', self.trimmomatic, readset.name),
                                           None,
                                           None,
                                           adapter_file=config.param('trimmomatic', 'adapter_fasta'),
@@ -110,57 +110,72 @@ class Metatranscriptomics(common.Illumina):
         """
         jobs = []
 
-        input_prefix = 'format_reads'
-        output_prefix = 'format_reads'
-
-        def get_inputs(readset):
-            """
-            :return: 2 fastq filenames for paired-end reads
-            """
-            input_dir = join(input_prefix, readset.name)
-            return join(input_dir, readset.name + '.1.qual_paired.fastq'), \
-                   join(input_dir, readset.name + '.2.qual_paired.fastq')
-
-        def get_flash_params(readset):
-            """
-            :return: flash's output directory and output prefix
-            """
-            return readset.name, join(output_prefix, readset.name)
-
-        def get_flash_outputs(output_dir, flash_output_prefix):
-            """
-            Get the filenames that flash will output
-
-            Flash will output 3 files, one for both fastqs, and one for the merged reads
-            :return: 2 uncombined fastq files + merged reads fastq file
-            """
-            return join(output_dir, flash_output_prefix + '.notCombined_1.fastq'), \
-                   join(output_dir, flash_output_prefix + '.notCombined_2.fastq'), \
-                   join(output_dir, flash_output_prefix + '.extendedFrags.fastq')
-
-        def get_outputs(readset):
-            """
-            :return: 2 output filenames
-            """
-            output_dir = join(output_prefix, readset.name)
-            return join(output_dir, readset.name + '.1.qual_all.fastq'), \
-                   join(output_dir, readset.name + '.2.qual_all.fastq')
+        # input_prefix = 'format_reads'
+        # output_prefix = 'format_reads'
+        #
+        # def get_inputs(readset):
+        #     """
+        #     :return: 2 fastq filenames for paired-end reads
+        #     """
+        #     input_dir = join(input_prefix, readset.name)
+        #     return join(input_dir, readset.name + '.1.qual_paired.fastq'), \
+        #            join(input_dir, readset.name + '.2.qual_paired.fastq')
+        #
+        # def get_flash_params(readset):
+        #     """
+        #     :return: flash's output directory and output prefix
+        #     """
+        #     return readset.name, join(output_prefix, readset.name)
+        #
+        # def get_flash_outputs(output_dir, flash_output_prefix):
+        #     """
+        #     Get the filenames that flash will output
+        #
+        #     Flash will output 3 files, one for both fastqs, and one for the merged reads
+        #     :return: 2 uncombined fastq files + merged reads fastq file
+        #     """
+        #     return join(output_dir, flash_output_prefix + '.notCombined_1.fastq'), \
+        #            join(output_dir, flash_output_prefix + '.notCombined_2.fastq'), \
+        #            join(output_dir, flash_output_prefix + '.extendedFrags.fastq')
+        #
+        # def get_outputs(readset):
+        #     """
+        #     :return: 2 output filenames
+        #     """
+        #     output_dir = join(output_prefix, readset.name)
+        #     return join(output_dir, readset.name + '.1.qual_all.fastq'), \
+        #            join(output_dir, readset.name + '.2.qual_all.fastq')
 
         for readset in self.readsets:
             # Get the filenames
-            input1, input2 = get_inputs(readset)
-            flash_output_dir, flash_output_prefix = get_flash_params(readset)
-            flash1, flash2, flash_merged = get_flash_outputs(flash_output_dir, flash_output_prefix)
-            output1, output2 = get_outputs(readset)
+            # input1, input2 = get_inputs(readset)
+            # flash_output_dir, flash_output_prefix = get_flash_params(readset)
+            # flash1, flash2, flash_merged = get_flash_outputs(flash_output_dir, flash_output_prefix)
+            # output1, output2 = get_outputs(readset)
+            output_dir = join(self.merge_overlapping_reads.__name__, readset.name)
+            output_prefix = readset.name
 
             # Create jobs
-            flash_job = flash.merge_overlapping_reads(input1, input2, flash_output_dir, flash_output_prefix)
+            flash_job = flash.merge_overlapping_reads(fastq1=self.fm.find_output('trim-paired1.fastq', self.trimmomatic, readset.name),
+                                                      fastq2=self.fm.find_output('trim-paired2.fastq', self.trimmomatic, readset.name),
+                                                      output_dir=join(self.merge_overlapping_reads.__name__, readset.name),
+                                                      output_prefix=output_prefix)
+            self.fm.declare_output(output_prefix + '.notCombined_1.fastq', self.merge_overlapping_reads, readset.name)
+            self.fm.declare_output(output_prefix + '.notCombined_2.fastq', self.merge_overlapping_reads, readset.name)
+            self.fm.declare_output(output_prefix + '.extendedFrags.fastq', self.merge_overlapping_reads, readset.name)
+
             # Put the merged reads into fastq1
-            fastq1_job = Job(input_files=[flash1, flash_merged],
+            flash1 = self.fm.find_output(output_prefix + '.notCombined_1.fastq', self.merge_overlapping_reads, readset.name)
+            flash_merged = self.fm.find_output(output_prefix + '.extendedFrags.fastq', self.merge_overlapping_reads, readset.name)
+            output1 = self.fm.declare_output('flash-1.fastq', self.merge_overlapping_reads, readset.name)
+            fastq1_job = Job(input_files=[flash1,
+                                          flash_merged],
                              output_files=[output1],
                              command='cat {flash1} {merged} > {output1}'.format(flash1=flash1, merged=flash_merged,
                                                                                 output1=output1))
             # Rename fastq2 to be consistent with fastq1
+            flash2 = self.fm.find_output(output_prefix + '.notCombined_2.fastq', self.merge_overlapping_reads, readset.name)
+            output2 = self.fm.declare_output('flash-2.fastq', self.merge_overlapping_reads, readset.name)
             fastq2_job = Job(input_files=[flash2],
                              output_files=[output2],
                              command='mv {flash2} {output2}'.format(flash2=flash2, output2=output2))

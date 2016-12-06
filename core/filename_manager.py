@@ -4,13 +4,13 @@ from os.path import join
 
 
 class File:
-    def __init__(self, tag, step_name, readset_name=None):
-        self.tag = tag
+    def __init__(self, filename, step_name, readset_name=None):
+        self.tag = filename
         self.step = step_name
         self.readset_name = readset_name
 
     @property
-    def filename(self):
+    def path(self):
         return join(self.step, getattr(self, 'readset_name', ''), self.tag)
 
 
@@ -18,14 +18,14 @@ class FilenameManager:
     def __init__(self, steps):
         self.files = {step: set() for step in steps}
 
-    def declare_output(self, tag, step, readset_name=None):
-        file = File(tag, step.__name__, readset_name)
+    def declare_output(self, filename, step, readset_name=None):
+        file = File(filename, step.__name__, readset_name)
         self.files[step].add(file)
-        return file.filename
+        return file.path
 
     def find_output(self, tag, step, readset_name=None):
         try:
-            return [f for f in self.files[step] if f.tag == tag and f.readset_name == readset_name][0].filename
+            return [f for f in self.files[step] if f.tag == tag and f.readset_name == readset_name][0].path
         except IndexError:
             raise Exception('Unable to find output file:\n'
                             'Step: {step}\n'
